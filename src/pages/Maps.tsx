@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { MapPin, Navigation } from 'lucide-react';
+import { MapPin, Navigation, Search, Route, Clock, Leaf, Zap, Target, Car, Bike, Bus, Users } from 'lucide-react';
 import { COST_PER_KM_USD, EMISSION_FACTORS_KG_PER_KM, RouteOption, TravelMode } from '../types';
 import { computeRouteMetrics } from '../services/routeMetrics';
 import { awardPointsForDistance } from '../services/gamification';
 import { saveJourney } from '../services/journeys';
+import { useAuth } from './AuthContext';
 
 // Removed unused Route interface and demo routes to satisfy linter
 
@@ -49,6 +50,7 @@ function loadGoogleMapsApi(apiKey: string): Promise<void> {
 }
 
 const Maps: React.FC = () => {
+  const { user } = useAuth();
   const [source, setSource] = useState('');
   const [destination, setDestination] = useState('');
   const [routeDistance, setRouteDistance] = useState<string>('');
@@ -58,6 +60,8 @@ const Maps: React.FC = () => {
   const [availableRoutes, setAvailableRoutes] = useState<any[]>([]);
   const [selectedRouteIndex, setSelectedRouteIndex] = useState<number>(0);
   const [saving, setSaving] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<any | null>(null);
   const directionsRendererRef = useRef<any | null>(null);
@@ -71,6 +75,10 @@ const Maps: React.FC = () => {
   const [trackingMode, setTrackingMode] = useState<TravelMode>('TRANSIT');
   const [trackedDistanceKm, setTrackedDistanceKm] = useState(0);
   const lastPointRef = useRef<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    setIsVisible(true);
+  }, []);
 
   // Load Google Maps
   useEffect(() => {
@@ -201,7 +209,7 @@ const Maps: React.FC = () => {
       const costUsd = trackedDistanceKm * (COST_PER_KM_USD[trackingMode] ?? 0);
       const metrics = { co2Kg, monetaryCost: costUsd, durationSeconds: elapsedSeconds, distanceKm: trackedDistanceKm };
       await saveJourney({
-        userId: 'demo-user',
+        userId: user?.username || 'guest-user',
         sourceText: source || 'Live start',
         destinationText: destination || 'Live end',
         mode: trackingMode,
@@ -219,6 +227,7 @@ const Maps: React.FC = () => {
   const handleFindRoutes = async () => {
     if (!source.trim() || !destination.trim() || !mapInstanceRef.current) return;
 
+    setIsSearching(true);
     try {
       const [fromLatLng, toLatLng] = await Promise.all([
         geocodeAddress(source),
@@ -273,6 +282,8 @@ const Maps: React.FC = () => {
     } catch (err) {
       console.error(err);
       alert('Geocoding failed. Check your input locations.');
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -290,8 +301,7 @@ const Maps: React.FC = () => {
       };
       const metrics = computeRouteMetrics(normalized);
       const points = awardPointsForDistance(metrics.distanceKm);
-      // For demo purposes, use an anonymous user id placeholder.
-      const userId = 'demo-user';
+      const userId = user?.username || 'guest-user';
       await saveJourney({
         userId,
         sourceText: source,
@@ -394,7 +404,7 @@ const Maps: React.FC = () => {
       };
       const metrics = computeRouteMetrics(normalized);
       await saveJourney({
-        userId: 'demo-user',
+        userId: user?.username || 'guest-user',
         sourceText: source,
         destinationText: destination,
         mode: normalized.mode,
@@ -413,79 +423,169 @@ const Maps: React.FC = () => {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Find Your Green Route</h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Discover eco-friendly travel options and make every journey count for the planet.
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 py-8 relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 right-20 w-64 h-64 bg-green-200 rounded-full opacity-20 blur-3xl float"></div>
+        <div className="absolute bottom-20 left-20 w-80 h-80 bg-blue-200 rounded-full opacity-20 blur-3xl float-delayed"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-purple-200 rounded-full opacity-10 blur-3xl float-slow"></div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className={`text-center mb-8 ${isVisible ? 'slide-in-up' : 'opacity-0'}`}>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4 flex items-center justify-center space-x-3">
+            <MapPin className="w-10 h-10 text-green-500 icon-spin" />
+            <span>Find Your Green Route</span>
+            <Route className="w-10 h-10 text-blue-500 icon-spin" />
+          </h1>
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto flex items-center justify-center space-x-2">
+            <Leaf className="w-6 h-6 text-green-500 icon-spin" />
+            <span>Discover eco-friendly travel options and make every journey count for the planet.</span>
+            <Zap className="w-6 h-6 text-yellow-500 icon-spin" />
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
+        <div className={`bg-white rounded-2xl shadow-xl p-8 mb-8 card-hover neon-glow ${
+          isVisible ? 'slide-in-up' : 'opacity-0'
+        }`} style={{ animationDelay: '0.2s' }}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <MapPin className="w-4 h-4 inline mr-1" />
-                From
+            <div className="group">
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center space-x-2">
+                <MapPin className="w-4 h-4 text-green-500 group-hover:scale-110 transition-transform duration-300" />
+                <span>From</span>
               </label>
               <input
                 type="text"
                 value={source}
                 onChange={(e) => setSource(e.target.value)}
                 placeholder="Enter starting location"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 group-hover:border-green-400"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <Navigation className="w-4 h-4 inline mr-1" />
-                To
+            <div className="group">
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center space-x-2">
+                <Navigation className="w-4 h-4 text-blue-500 group-hover:scale-110 transition-transform duration-300" />
+                <span>To</span>
               </label>
               <input
                 type="text"
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
                 placeholder="Enter destination"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 group-hover:border-green-400"
               />
             </div>
           </div>
           {/* Travel mode and avoid options removed for simplicity; defaulting to Public Transit */}
           <button
             onClick={handleFindRoutes}
-            disabled={!source.trim() || !destination.trim()}
-            className="w-full bg-green-600 text-white py-4 px-6 rounded-xl font-semibold hover:bg-green-700 disabled:bg-gray-400 transition-all"
+            disabled={!source.trim() || !destination.trim() || isSearching}
+            className="btn-primary w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-4 px-6 rounded-xl font-semibold hover:from-green-700 hover:to-blue-700 disabled:bg-gray-400 transition-all flex items-center justify-center space-x-2 focus-ring"
           >
-            Find Green Routes
+            {isSearching ? (
+              <>
+                <div className="spinner w-5 h-5"></div>
+                <span>Finding Routes...</span>
+              </>
+            ) : (
+              <>
+                <Search className="w-5 h-5 icon-spin" />
+                <span>Find Green Routes</span>
+                <Zap className="w-5 h-5 icon-spin" />
+              </>
+            )}
           </button>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Interactive Route Map</h2>
-          <div className="rounded-xl h-64 md:h-96 border border-gray-200 overflow-hidden">
+        <div className={`bg-white rounded-2xl shadow-xl p-8 mb-8 card-hover neon-glow ${
+          isVisible ? 'slide-in-up' : 'opacity-0'
+        }`} style={{ animationDelay: '0.4s' }}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+              <MapPin className="w-6 h-6 text-green-500 icon-spin" />
+              <span>Interactive Route Map</span>
+            </h2>
+            <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span>Live</span>
+            </div>
+          </div>
+          <div className="rounded-xl h-64 md:h-96 border border-gray-200 overflow-hidden relative">
             <div ref={mapRef} className="w-full h-full"></div>
+            {isSearching && (
+              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
+                <div className="text-center">
+                  <div className="spinner w-8 h-8 mx-auto mb-2"></div>
+                  <p className="text-gray-600">Loading map...</p>
+                </div>
+              </div>
+            )}
           </div>
           {scenarioCards.length > 0 && (
             <div className="mt-6">
-              <h3 className="text-xl font-bold text-gray-900 mb-3 text-center">Route Recommendations</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-3 text-center flex items-center justify-center space-x-2">
+                <Target className="w-6 h-6 text-green-500 icon-spin" />
+                <span>Route Recommendations</span>
+                <Zap className="w-6 h-6 text-yellow-500 icon-spin" />
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {scenarioCards.map((card) => (
-                  <div key={card.key} className={`rounded-xl border ${card.color} p-4 bg-white shadow-sm`}>
-                    <div className="font-semibold text-gray-900">{card.title}</div>
-                    <div className="text-xs text-gray-500 mb-2">{card.subtitle}</div>
-                    <div className="grid grid-cols-3 gap-2 text-sm text-gray-700 mb-3">
-                      <div><div className="text-gray-500">CO₂</div><div className="font-semibold">{card.co2Kg} kg</div></div>
-                      <div><div className="text-gray-500">Cost</div><div className="font-semibold">₹{card.cost}</div></div>
-                      <div><div className="text-gray-500">Time</div><div className="font-semibold">{card.durationMin} min</div></div>
+                {scenarioCards.map((card, index) => (
+                  <div 
+                    key={card.key} 
+                    className={`rounded-xl border ${card.color} p-4 bg-white shadow-sm card-hover group cursor-pointer ${
+                      isVisible ? 'stagger-item' : 'opacity-0'
+                    }`}
+                    style={{ animationDelay: `${0.6 + index * 0.1}s` }}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="font-semibold text-gray-900 group-hover:text-green-600 transition-colors duration-300">
+                        {card.title}
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        {card.key === 'metro' && <Bus className="w-4 h-4 text-blue-500 group-hover:scale-110 transition-transform duration-300" />}
+                        {card.key === 'bus' && <Bus className="w-4 h-4 text-sky-500 group-hover:scale-110 transition-transform duration-300" />}
+                        {card.key === 'carpool' && <Users className="w-4 h-4 text-purple-500 group-hover:scale-110 transition-transform duration-300" />}
+                        {card.key === 'car' && <Car className="w-4 h-4 text-red-500 group-hover:scale-110 transition-transform duration-300" />}
+                      </div>
                     </div>
-                    <div className="text-right text-green-700 text-xs mb-3">+{card.points} points</div>
+                    <div className="text-xs text-gray-500 mb-3 group-hover:text-gray-700 transition-colors duration-300">
+                      {card.subtitle}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-sm text-gray-700 mb-3">
+                      <div className="text-center p-2 rounded-lg bg-green-50 group-hover:bg-green-100 transition-colors duration-300">
+                        <div className="text-gray-500 flex items-center justify-center space-x-1">
+                          <Leaf className="w-3 h-3" />
+                          <span>CO₂</span>
+                        </div>
+                        <div className="font-semibold text-green-700">{card.co2Kg} kg</div>
+                      </div>
+                      <div className="text-center p-2 rounded-lg bg-blue-50 group-hover:bg-blue-100 transition-colors duration-300">
+                        <div className="text-gray-500 flex items-center justify-center space-x-1">
+                          <Clock className="w-3 h-3" />
+                          <span>Cost</span>
+                        </div>
+                        <div className="font-semibold text-blue-700">₹{card.cost}</div>
+                      </div>
+                      <div className="text-center p-2 rounded-lg bg-purple-50 group-hover:bg-purple-100 transition-colors duration-300">
+                        <div className="text-gray-500 flex items-center justify-center space-x-1">
+                          <Clock className="w-3 h-3" />
+                          <span>Time</span>
+                        </div>
+                        <div className="font-semibold text-purple-700">{card.durationMin} min</div>
+                      </div>
+                    </div>
+                    <div className="text-right text-green-700 text-xs mb-3 flex items-center justify-end space-x-1">
+                      <Star className="w-3 h-3" />
+                      <span>+{card.points} points</span>
+                    </div>
                     <button
                       onClick={() => handleStartScenario(card.key, card.mode)}
                       disabled={saving}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-semibold disabled:bg-gray-400"
+                      className="btn-primary w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white py-2 rounded-lg font-semibold disabled:bg-gray-400 flex items-center justify-center space-x-2 focus-ring"
                     >
-                      Start Journey & Track
+                      <Target className="w-4 h-4 icon-spin" />
+                      <span>Start Journey & Track</span>
+                      <Zap className="w-4 h-4 icon-spin" />
                     </button>
                   </div>
                 ))}
@@ -494,19 +594,42 @@ const Maps: React.FC = () => {
           )}
           {availableRoutes.length > 0 && (
             <div className="mt-4">
-              <button onClick={handleSaveJourney} disabled={saving} className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400">{saving ? 'Saving...' : 'Save Journey & Earn Points'}</button>
+              <button 
+                onClick={handleSaveJourney} 
+                disabled={saving} 
+                className="btn-primary w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 disabled:bg-gray-400 flex items-center justify-center space-x-2 focus-ring"
+              >
+                {saving ? (
+                  <>
+                    <div className="spinner w-5 h-5"></div>
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Star className="w-5 h-5 icon-spin" />
+                    <span>Save Journey & Earn Points</span>
+                    <Zap className="w-5 h-5 icon-spin" />
+                  </>
+                )}
+              </button>
             </div>
           )}
           {(routeDistance || routeDuration) && (
             <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
               {routeDistance && (
-                <div className="p-3 rounded-lg bg-green-50 text-green-800 text-sm">
-                  Distance: <span className="font-semibold">{routeDistance}</span>
+                <div className="p-3 rounded-lg bg-green-50 text-green-800 text-sm card-hover group cursor-pointer">
+                  <div className="flex items-center space-x-2">
+                    <Leaf className="w-4 h-4 group-hover:scale-110 transition-transform duration-300" />
+                    <span>Distance: <span className="font-semibold">{routeDistance}</span></span>
+                  </div>
                 </div>
               )}
               {routeDuration && (
-                <div className="p-3 rounded-lg bg-blue-50 text-blue-800 text-sm">
-                  Duration: <span className="font-semibold">{routeDuration}</span>
+                <div className="p-3 rounded-lg bg-blue-50 text-blue-800 text-sm card-hover group cursor-pointer">
+                  <div className="flex items-center space-x-2">
+                    <Clock className="w-4 h-4 group-hover:scale-110 transition-transform duration-300" />
+                    <span>Duration: <span className="font-semibold">{routeDuration}</span></span>
+                  </div>
                 </div>
               )}
             </div>
@@ -514,15 +637,29 @@ const Maps: React.FC = () => {
         </div>
 
         {/* Live tracking card */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Live Journey Tracking</h2>
+        <div className={`bg-white rounded-2xl shadow-xl p-8 mb-8 card-hover neon-glow ${
+          isVisible ? 'slide-in-up' : 'opacity-0'
+        }`} style={{ animationDelay: '0.8s' }}>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+              <Target className="w-6 h-6 text-green-500 icon-spin" />
+              <span>Live Journey Tracking</span>
+            </h2>
+            <div className="flex items-center space-x-2 text-sm text-gray-500">
+              <div className={`w-2 h-2 rounded-full ${isTracking ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+              <span>{isTracking ? 'Tracking' : 'Ready'}</span>
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Tracking mode</label>
+            <div className="group">
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center space-x-2">
+                <Route className="w-4 h-4 text-green-500 group-hover:scale-110 transition-transform duration-300" />
+                <span>Tracking mode</span>
+              </label>
               <select
                 value={trackingMode}
                 onChange={(e) => setTrackingMode(e.target.value as TravelMode)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 bg-white"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 bg-white group-hover:border-green-400 transition-colors duration-300"
               >
                 <option value="TRANSIT">Public Transit</option>
                 <option value="DRIVING">Car / Carpool</option>
@@ -530,17 +667,51 @@ const Maps: React.FC = () => {
                 <option value="WALKING">Walking</option>
               </select>
             </div>
-            <div>
-              <div className="text-sm text-gray-600 mb-1">Distance tracked</div>
-              <div className="text-xl font-semibold">{trackedDistanceKm.toFixed(2)} km</div>
+            <div className="text-center p-4 rounded-lg bg-gradient-to-br from-green-50 to-blue-50 group cursor-pointer">
+              <div className="text-sm text-gray-600 mb-1 flex items-center justify-center space-x-1">
+                <MapPin className="w-4 h-4 group-hover:scale-110 transition-transform duration-300" />
+                <span>Distance tracked</span>
+              </div>
+              <div className="text-2xl font-bold text-green-700 group-hover:text-green-600 transition-colors duration-300">
+                {trackedDistanceKm.toFixed(2)} km
+              </div>
             </div>
             <div className="flex gap-2">
               {!isTracking ? (
-                <button onClick={startLiveTracking} className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700">Start Tracking</button>
+                <button 
+                  onClick={startLiveTracking} 
+                  className="btn-primary w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-3 rounded-lg font-semibold hover:from-green-700 hover:to-blue-700 flex items-center justify-center space-x-2 focus-ring"
+                >
+                  <Target className="w-5 h-5 icon-spin" />
+                  <span>Start Tracking</span>
+                </button>
               ) : (
                 <>
-                  <button onClick={stopAndSaveLiveTracking} className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">Stop & Save</button>
-                  <button onClick={() => { if (geoWatchIdRef.current !== null) { navigator.geolocation.clearWatch(geoWatchIdRef.current); geoWatchIdRef.current = null; } setIsTracking(false); setTrackedDistanceKm(0); lastPointRef.current = null; if (polylineRef.current) { const path = polylineRef.current.getPath && polylineRef.current.getPath(); if (path && path.clear) path.clear(); } }} className="w-full bg-gray-200 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-300">Cancel</button>
+                  <button 
+                    onClick={stopAndSaveLiveTracking} 
+                    className="btn-primary w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 flex items-center justify-center space-x-2 focus-ring"
+                  >
+                    <Zap className="w-5 h-5 icon-spin" />
+                    <span>Stop & Save</span>
+                  </button>
+                  <button 
+                    onClick={() => { 
+                      if (geoWatchIdRef.current !== null) { 
+                        navigator.geolocation.clearWatch(geoWatchIdRef.current); 
+                        geoWatchIdRef.current = null; 
+                      } 
+                      setIsTracking(false); 
+                      setTrackedDistanceKm(0); 
+                      lastPointRef.current = null; 
+                      if (polylineRef.current) { 
+                        const path = polylineRef.current.getPath && polylineRef.current.getPath(); 
+                        if (path && path.clear) path.clear(); 
+                      } 
+                    }} 
+                    className="w-full bg-gray-200 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-300 flex items-center justify-center space-x-2 transition-all duration-300"
+                  >
+                    <span>Cancel</span>
+                  </button>
                 </>
               )}
             </div>
@@ -553,4 +724,3 @@ const Maps: React.FC = () => {
 };
 
 export default Maps;
-

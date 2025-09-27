@@ -19,19 +19,28 @@ let cachedApp: FirebaseApp | null = null;
 export function getFirebaseApp(): FirebaseApp {
   if (cachedApp) return cachedApp;
   if (!firebaseConfig.apiKey) {
-    console.warn('VITE_FIREBASE_API_KEY not set. Firebase will not be initialized.');
+    console.warn('VITE_FIREBASE_API_KEY not set. Creating mock Firebase app.');
+    // Return a mock app object to prevent crashes
+    cachedApp = {} as FirebaseApp;
+    return cachedApp;
   }
   try {
     cachedApp = initializeApp(firebaseConfig);
     return cachedApp;
   } catch (e) {
     console.error('Failed to initialize Firebase app:', e);
-    throw e;
+    // Return mock app on error to prevent crashes
+    cachedApp = {} as FirebaseApp;
+    return cachedApp;
   }
 }
 
 export function getAuthInstance(): Auth {
   const app = getFirebaseApp();
+  if (!firebaseConfig.apiKey) {
+    // Return mock auth when Firebase is not configured
+    return {} as Auth;
+  }
   return getAuth(app);
 }
 
