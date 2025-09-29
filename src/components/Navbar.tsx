@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Leaf, Facebook, LogOut, User, Menu, X, Home, Award, MapPin, BarChart3 } from 'lucide-react';
+import { Leaf, Instagram, LogOut, User, Menu, X, Home, Award, MapPin, BarChart3 } from 'lucide-react';
 import { useAuth } from '../pages/AuthContext';
 
 const Navbar: React.FC = () => {
@@ -132,8 +132,8 @@ const Navbar: React.FC = () => {
                 to="/login" 
                 className="btn-primary flex items-center space-x-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-pink-600 hover:to-purple-700 shadow-md hover:shadow-lg focus-ring"
               >
-                <Facebook className="w-4 h-4 icon-spin" />
-                <span>Login with Facebook</span>
+                <Instagram className="w-4 h-4 icon-spin" />
+                <span>Login with Instagram</span>
               </Link>
             )}
           </div>
@@ -202,8 +202,8 @@ const Navbar: React.FC = () => {
                     onClick={() => setIsMobileMenuOpen(false)}
                     className="btn-primary w-full flex items-center space-x-3 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-3 py-2 rounded-lg hover:from-pink-600 hover:to-purple-700 focus-ring"
                   >
-                    <Facebook className="w-5 h-5 icon-spin" />
-                    <span>Login with Facebook</span>
+                    <Instagram className="w-5 h-5 icon-spin" />
+                    <span>Login with Instagram</span>
                   </Link>
                 )}
               </div>
