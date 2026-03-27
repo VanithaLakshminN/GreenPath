@@ -1,153 +1,196 @@
 import React, { useState } from 'react';
-import { Instagram, Leaf, AlertCircle, Loader, ExternalLink, UserPlus } from 'lucide-react';
+import { Leaf, AlertCircle, Loader, Mail, Lock, Eye, EyeOff, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
-import instagramAuthService, { InstagramUserData } from '../services/instagramAuth';
+
+type Mode = 'signin' | 'signup';
 
 const Login: React.FC = () => {
-  const { login, loading: authLoading } = useAuth();
+  const { loginWithEmail, signupWithEmail } = useAuth();
   const navigate = useNavigate();
+  const [mode, setMode] = useState<Mode>('signin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showCreateAccountHelp, setShowCreateAccountHelp] = useState(false);
 
-  const handleInstagramLogin = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError(null);
-    
-    if (!instagramAuthService.isConfigured()) {
-      setError('Instagram authentication requires app credentials. Please configure your Instagram app in .env.local file. See setup instructions.');
-      return;
-    }
-
-    // Check if we have valid credentials (not placeholder values)
-    const clientId = import.meta.env.VITE_INSTAGRAM_CLIENT_ID;
-    if (!clientId || clientId === '123456789' || clientId === 'your_instagram_client_id_here') {
-      setError('Instagram app credentials are not configured. Please add your real Instagram Client ID and Secret to .env.local file.');
-      return;
-    }
-
+    setLoading(true);
     try {
-      // Always use reauthenticate to allow account switching
-      instagramAuthService.login(true);
-    } catch (error) {
-      console.error('Failed to initiate Instagram login:', error);
-      setError('Failed to start Instagram authentication');
+      if (mode === 'signup') {
+        if (username.trim().length < 3) {
+          setError('Username must be at least 3 characters.');
+          setLoading(false);
+          return;
+        }
+        await signupWithEmail(email, password, username.trim());
+      } else {
+        await loginWithEmail(email, password);
+      }
+      navigate('/dashboard', { replace: true });
+    } catch (err: any) {
+      setError(friendlyError(err?.code || err?.message));
+    } finally {
+      setLoading(false);
     }
-  };
-
-  const isLoading = loading || authLoading;
-
-  const handleCreateInstagramAccount = () => {
-    // Open Instagram signup page in a new window
-    const signupUrl = 'https://www.instagram.com/accounts/emailsignup/';
-    window.open(signupUrl, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
-    
-    // Show create account help
-    setShowCreateAccountHelp(true);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-2xl shadow-xl text-center">
-        <div>
-          <div className="mx-auto h-12 w-auto bg-green-500 rounded-full flex items-center justify-center">
+      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-2xl shadow-xl">
+        <div className="text-center">
+          <div className="mx-auto h-12 w-12 bg-green-500 rounded-full flex items-center justify-center">
             <Leaf className="h-8 w-8 text-white" />
           </div>
-          <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-            Join GreenPath
+          <h2 className="mt-6 text-3xl font-bold text-gray-900">
+            {mode === 'signin' ? 'Welcome back' : 'Join GreenPath'}
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Log in to save your journeys, track your impact, and earn rewards!
+          <p className="mt-2 text-sm text-gray-600">
+            {mode === 'signin'
+              ? 'Sign in to track your eco journeys'
+              : 'Create an account to start your green journey'}
           </p>
         </div>
-        <div className="mt-8 space-y-6">
+
+        {/* Tab switcher */}
+        <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => { setMode('signin'); setError(null); }}
+            className={`flex-1 py-2 text-sm font-medium transition-colors duration-200 ${
+              mode === 'signin'
+                ? 'bg-green-500 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode('signup'); setError(null); }}
+            className={`flex-1 py-2 text-sm font-medium transition-colors duration-200 ${
+              mode === 'signup'
+                ? 'bg-green-500 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            Sign Up
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-4">
-              <div className="flex">
-                <AlertCircle className="h-5 w-5 text-red-400" />
-                <div className="ml-3">
-                  <p className="text-sm text-red-800">{error}</p>
-                  {error.includes('credentials') && (
-                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
-                      <p className="text-xs text-blue-800 font-medium mb-2">Quick Setup Guide:</p>
-                      <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
-                        <li>Go to <a href="https://developers.facebook.com/" target="_blank" rel="noopener noreferrer" className="underline">Facebook Developer Console</a></li>
-                        <li>Create an app and add Instagram Basic Display product</li>
-                        <li>Get your Instagram App ID and Secret</li>
-                        <li>Update .env.local with your Instagram credentials</li>
-                      </ol>
-                    </div>
-                  )}
-                </div>
+            <div className="bg-red-50 border border-red-200 rounded-md p-3 flex items-start space-x-2">
+              <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+
+          {mode === 'signup' && (
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
+                Username
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  id="username"
+                  type="text"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                  placeholder="your_username"
+                  maxLength={20}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                />
               </div>
             </div>
           )}
-          
-          {/* Instagram Options Info */}
-          <div className="bg-gray-50 border border-gray-200 rounded-md p-3 text-center">
-            <p className="text-xs text-gray-600">
-              📸 Have Instagram? Click pink button • No account? Click green button
-            </p>
+
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              Email
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              />
+            </div>
           </div>
-          
-          {/* Instagram Login Button */}
+
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              Password
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={mode === 'signup' ? 'At least 6 characters' : 'Your password'}
+                minLength={6}
+                className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
           <button
-            onClick={handleInstagramLogin}
-            disabled={isLoading}
-            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-gradient-to-r from-pink-600 to-purple-700 hover:from-pink-700 hover:to-purple-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 transition-all duration-200 shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            type="submit"
+            disabled={loading}
+            className="w-full flex justify-center items-center space-x-2 py-3 px-4 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoading ? (
+            {loading ? (
               <>
-                <Loader className="w-5 h-5 mr-2 animate-spin" />
-                Connecting to Instagram...
+                <Loader className="w-4 h-4 animate-spin" />
+                <span>{mode === 'signup' ? 'Creating account...' : 'Signing in...'}</span>
               </>
             ) : (
-              <>
-                <Instagram className="w-5 h-5 mr-2" />
-                Login with Instagram
-              </>
+              <span>{mode === 'signup' ? 'Create Account' : 'Sign In'}</span>
             )}
           </button>
-          
-          {/* Create Instagram Account Button */}
-          <button
-            onClick={handleCreateInstagramAccount}
-            disabled={isLoading}
-            className="group relative w-full flex justify-center py-2 px-4 border border-green-300 text-sm font-medium rounded-md text-green-600 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <UserPlus className="w-4 h-4 mr-2" />
-            Don't have Instagram? Create Account
-            <ExternalLink className="w-3 h-3 ml-2" />
-          </button>
-          
-          {/* Create Account Help */}
-          {showCreateAccountHelp && (
-            <div className="bg-green-50 border border-green-200 rounded-md p-4">
-              <div className="flex">
-                <AlertCircle className="h-5 w-5 text-green-400" />
-                <div className="ml-3">
-                  <p className="text-sm text-green-800 font-medium mb-2">Creating Instagram Account:</p>
-                  <ol className="text-xs text-green-700 space-y-1 list-decimal list-inside">
-                    <li>Instagram signup page opened in new window</li>
-                    <li>Fill in your details to create new account</li>
-                    <li>Verify your email/phone number</li>
-                    <li>Come back and click "Login with Instagram"</li>
-                  </ol>
-                  <p className="text-xs text-green-600 mt-2 font-medium">💡 Tip: Keep this tab open while creating your account</p>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          <div className="text-sm text-center">
-            <Link to="/" className="font-medium text-green-600 hover:text-green-500">
-              Or continue as a guest
-            </Link>
-          </div>
+        </form>
+
+        <div className="text-center">
+          <Link to="/" className="text-sm font-medium text-green-600 hover:text-green-500">
+            Continue as guest
+          </Link>
         </div>
       </div>
     </div>
   );
 };
+
+function friendlyError(code: string): string {
+  const map: Record<string, string> = {
+    'auth/user-not-found': 'No account found with this email.',
+    'auth/wrong-password': 'Incorrect password.',
+    'auth/email-already-in-use': 'An account with this email already exists.',
+    'auth/username-taken': 'That username is already taken.',
+    'auth/weak-password': 'Password must be at least 6 characters.',
+    'auth/invalid-email': 'Please enter a valid email address.',
+  };
+  return map[code] ?? 'Something went wrong. Please try again.';
+}
 
 export default Login;

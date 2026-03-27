@@ -1,8 +1,6 @@
-import { addDoc, collection, getDocs, orderBy, query, serverTimestamp } from 'firebase/firestore';
-import { getDb } from '../firebase';
 import { JourneyRecord, RouteMetrics, TravelMode } from '../types';
 
-const COLLECTION = 'journeys';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 export async function saveJourney(params: {
   userId: string;
@@ -14,47 +12,18 @@ export async function saveJourney(params: {
   co2SavedKg?: number;
   media?: JourneyRecord['media'];
 }): Promise<string> {
-  const now = Date.now();
-  const db = getDb();
-  const docRef = await addDoc(collection(db, COLLECTION), {
-    userId: params.userId,
-    sourceText: params.sourceText,
-    destinationText: params.destinationText,
-    mode: params.mode,
-    routeId: params.routeId,
-    metrics: params.metrics,
-    co2SavedKg: params.co2SavedKg ?? 0,
-    media: params.media ?? [],
-    startedAt: now,
-    completedAt: now,
-    createdAt: serverTimestamp(),
+  const res = await fetch(`${API}/journeys`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...params, co2SavedKg: params.co2SavedKg ?? 0, media: params.media ?? [] }),
   });
-  return docRef.id;
+  if (!res.ok) throw new Error('Failed to save journey');
+  const data = await res.json();
+  return data.id;
 }
 
 export async function listJourneys(userId: string): Promise<JourneyRecord[]> {
-  const db = getDb();
-  const q = query(collection(db, COLLECTION), orderBy('createdAt', 'desc'));
-  const snap = await getDocs(q);
-  const results: JourneyRecord[] = [];
-  snap.forEach((docSnap) => {
-    const data = docSnap.data() as any;
-    if (data.userId !== userId) return;
-    results.push({
-      id: docSnap.id,
-      userId: data.userId,
-      sourceText: data.sourceText,
-      destinationText: data.destinationText,
-      mode: data.mode,
-      routeId: data.routeId,
-      metrics: data.metrics,
-      co2SavedKg: data.co2SavedKg,
-      startedAt: data.startedAt,
-      completedAt: data.completedAt,
-      media: data.media ?? [],
-    });
-  });
-  return results;
+  const res = await fetch(`${API}/journeys/${encodeURIComponent(userId)}`);
+  if (!res.ok) throw new Error('Failed to load journeys');
+  return res.json();
 }
-
-
